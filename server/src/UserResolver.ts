@@ -64,6 +64,13 @@ export class UserResolver {
   }
 
   @Mutation(() => Boolean)
+  async logout(@Ctx() { res }: MyContext) {
+    sendRefreshToken(res, "");
+
+    return true;
+  }
+
+  @Mutation(() => Boolean)
   async revokeRefreshTokensForUser(@Arg("userId", () => Int) userId: number) {
     await getConnection()
       .getRepository(User)

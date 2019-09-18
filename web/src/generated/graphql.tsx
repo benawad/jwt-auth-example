@@ -19,6 +19,7 @@ export type LoginResponse = {
 
 export type Mutation = {
    __typename?: 'Mutation',
+  logout: Scalars['Boolean'],
   revokeRefreshTokensForUser: Scalars['Boolean'],
   login: LoginResponse,
   register: Scalars['Boolean'],
@@ -86,6 +87,14 @@ export type LoginMutation = (
       & Pick<User, 'id' | 'email'>
     ) }
   ) }
+);
+
+export type LogoutMutationVariables = {};
+
+
+export type LogoutMutation = (
+  { __typename?: 'Mutation' }
+  & Pick<Mutation, 'logout'>
 );
 
 export type MeQueryVariables = {};
@@ -170,6 +179,19 @@ export type LoginMutationFn = ApolloReactCommon.MutationFunction<LoginMutation, 
 export type LoginMutationHookResult = ReturnType<typeof useLoginMutation>;
 export type LoginMutationResult = ApolloReactCommon.MutationResult<LoginMutation>;
 export type LoginMutationOptions = ApolloReactCommon.BaseMutationOptions<LoginMutation, LoginMutationVariables>;
+export const LogoutDocument = gql`
+    mutation Logout {
+  logout
+}
+    `;
+export type LogoutMutationFn = ApolloReactCommon.MutationFunction<LogoutMutation, LogoutMutationVariables>;
+
+    export function useLogoutMutation(baseOptions?: ApolloReactHooks.MutationHookOptions<LogoutMutation, LogoutMutationVariables>) {
+      return ApolloReactHooks.useMutation<LogoutMutation, LogoutMutationVariables>(LogoutDocument, baseOptions);
+    }
+export type LogoutMutationHookResult = ReturnType<typeof useLogoutMutation>;
+export type LogoutMutationResult = ApolloReactCommon.MutationResult<LogoutMutation>;
+export type LogoutMutationOptions = ApolloReactCommon.BaseMutationOptions<LogoutMutation, LogoutMutationVariables>;
 export const MeDocument = gql`
     query Me {
   me {
