@@ -20,12 +20,7 @@ import { ApolloLink } from "apollo-link";
  * @param {Boolean} [config.ssr=true]
  */
 export function withApollo(PageComponent: any, { ssr = true } = {}) {
-  const WithApollo = ({
-    apolloClient,
-    accessToken,
-    apolloState,
-    ...pageProps
-  }: any) => {
+  const WithApollo = ({ apolloClient, apolloState, ...pageProps }: any) => {
     const client = apolloClient || initApolloClient(apolloState);
     return <PageComponent {...pageProps} apolloClient={client} />;
   };
