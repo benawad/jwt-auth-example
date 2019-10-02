@@ -1,0 +1,38 @@
+{
+  "name": "with-typescript",
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "next",
+    "build": "next build",
+    "start": "next start",
+    "type-check": "tsc",
+    "gen": "graphql-codegen --config codegen.yml"
+  },
+  "dependencies": {
+    "@apollo/react-hooks": "^3.1.2",
+    "@apollo/react-ssr": "^3.1.2",
+    "apollo-boost": "^0.4.4",
+    "apollo-link-context": "^1.0.19",
+    "apollo-link-token-refresh": "^0.2.6",
+    "cookie": "^0.4.0",
+    "isomorphic-unfetch": "^3.0.0",
+    "jwt-decode": "^2.2.0",
+    "next": "latest",
+    "react": "^16.10.1",
+    "react-dom": "^16.10.1"
+  },
+  "devDependencies": {
+    "@graphql-codegen/cli": "^1.7.0",
+    "@graphql-codegen/introspection": "1.7.0",
+    "@graphql-codegen/typescript": "1.7.0",
+    "@graphql-codegen/typescript-operations": "1.7.0",
+    "@graphql-codegen/typescript-react-apollo": "1.7.0",
+    "@types/cookie": "^0.3.3",
+    "@types/jwt-decode": "^2.2.1",
+    "@types/node": "^12.7.8",
+    "@types/react": "^16.9.3",
+    "@types/react-dom": "^16.9.1",
+    "typescript": "3.6.3"
+  },
+  "license": "ISC"
+}
