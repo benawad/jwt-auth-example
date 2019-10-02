@@ -1,11 +1,9 @@
 import React from "react";
-import cookie from "cookie";
 import Head from "next/head";
 import { ApolloClient } from "apollo-client";
 import { InMemoryCache, NormalizedCacheObject } from "apollo-cache-inmemory";
 import { HttpLink } from "apollo-link-http";
 import { setContext } from "apollo-link-context";
-import { ApolloProvider } from "@apollo/react-hooks";
 import fetch from "isomorphic-unfetch";
 import { TokenRefreshLink } from "apollo-link-token-refresh";
 import jwtDecode from "jwt-decode";
@@ -22,13 +20,14 @@ import { ApolloLink } from "apollo-link";
  * @param {Boolean} [config.ssr=true]
  */
 export function withApollo(PageComponent: any, { ssr = true } = {}) {
-  const WithApollo = ({ apolloClient, apolloState, ...pageProps }: any) => {
-    const client = apolloClient || initApolloClient(apolloState, { getToken });
-    return (
-      <ApolloProvider client={client}>
-        <PageComponent {...pageProps} />
-      </ApolloProvider>
-    );
+  const WithApollo = ({
+    apolloClient,
+    accessToken,
+    apolloState,
+    ...pageProps
+  }: any) => {
+    const client = apolloClient || initApolloClient(apolloState);
+    return <PageComponent {...pageProps} apolloClient={client} />;
   };
 
   if (process.env.NODE_ENV !== "production") {
@@ -47,16 +46,14 @@ export function withApollo(PageComponent: any, { ssr = true } = {}) {
 
   if (ssr || PageComponent.getInitialProps) {
     WithApollo.getInitialProps = async (ctx: any) => {
-      const { AppTree } = ctx;
+      const {
+        AppTree,
+        ctx: { res }
+      } = ctx;
 
       // Run all GraphQL queries in the component tree
       // and extract the resulting data
-      const apolloClient = (ctx.apolloClient = initApolloClient(
-        {},
-        {
-          getToken: () => getToken(ctx.req)
-        }
-      ));
+      const apolloClient = (ctx.ctx.apolloClient = initApolloClient({}));
 
       const pageProps = PageComponent.getInitialProps
         ? await PageComponent.getInitialProps(ctx)
@@ -66,7 +63,7 @@ export function withApollo(PageComponent: any, { ssr = true } = {}) {
       if (typeof window === "undefined") {
         // When redirecting, the response is finished.
         // No point in continuing to render
-        if (ctx.res && ctx.res.finished) {
+        if (res && res.finished) {
           return {};
         }
 
@@ -80,6 +77,7 @@ export function withApollo(PageComponent: any, { ssr = true } = {}) {
                   ...pageProps,
                   apolloClient
                 }}
+                apolloClient={apolloClient}
               />
             );
           } catch (error) {
@@ -114,16 +112,17 @@ let apolloClient: ApolloClient<NormalizedCacheObject> | null = null;
  * Always creates a new apollo client on the server
  * Creates or reuses apollo client in the browser.
  */
-function initApolloClient(initState: any, opts: any) {
+function initApolloClient(initState: any) {
   // Make sure to create a new client for every server-side request so that data
   // isn't shared between connections (which would be bad)
   if (typeof window === "undefined") {
-    return createApolloClient(initState, opts);
+    return createApolloClient(initState);
   }
 
   // Reuse client on the client-side
   if (!apolloClient) {
-    apolloClient = createApolloClient(initState, opts);
+    // setAccessToken(cookie.parse(document.cookie).test);
+    apolloClient = createApolloClient(initState);
   }
 
   return apolloClient;
@@ -134,7 +133,7 @@ function initApolloClient(initState: any, opts: any) {
  * @param  {Object} [initialState={}]
  * @param  {Object} config
  */
-function createApolloClient(initialState = {}, _opts: any) {
+function createApolloClient(initialState = {}) {
   const httpLink = new HttpLink({
     uri: "http://localhost:4000/graphql",
     credentials: "include",
@@ -196,15 +195,4 @@ function createApolloClient(initialState = {}, _opts: any) {
     link: ApolloLink.from([refreshLink, authLink, errorLink, httpLink]),
     cache: new InMemoryCache().restore(initialState)
   });
-}
-
-/**
- * Get the user token from cookie
- * @param {Object} req
- */
-function getToken(req: any) {
-  const cookies = cookie.parse(
-    req ? req.headers.cookie || "" : document.cookie
-  );
-  return cookies.token;
 }
