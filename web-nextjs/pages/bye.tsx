@@ -3,9 +3,7 @@ import { useByeQuery } from "../generated/graphql";
 import Layout from "../components/Layout";
 
 export default () => {
-  const { data, loading, error } = useByeQuery({
-    fetchPolicy: "network-only"
-  });
+  const { data, loading, error } = useByeQuery();
 
   if (loading) {
     return (

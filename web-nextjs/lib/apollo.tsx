@@ -10,6 +10,9 @@ import jwtDecode from "jwt-decode";
 import { getAccessToken, setAccessToken } from "./accessToken";
 import { onError } from "apollo-link-error";
 import { ApolloLink } from "apollo-link";
+import cookie from "cookie";
+
+const isServer = () => typeof window === "undefined";
 
 /**
  * Creates and provides the apolloContext
@@ -20,7 +23,15 @@ import { ApolloLink } from "apollo-link";
  * @param {Boolean} [config.ssr=true]
  */
 export function withApollo(PageComponent: any, { ssr = true } = {}) {
-  const WithApollo = ({ apolloClient, apolloState, ...pageProps }: any) => {
+  const WithApollo = ({
+    apolloClient,
+    serverAccessToken,
+    apolloState,
+    ...pageProps
+  }: any) => {
+    if (!isServer() && !getAccessToken()) {
+      setAccessToken(serverAccessToken);
+    }
     const client = apolloClient || initApolloClient(apolloState);
     return <PageComponent {...pageProps} apolloClient={client} />;
   };
@@ -43,12 +54,32 @@ export function withApollo(PageComponent: any, { ssr = true } = {}) {
     WithApollo.getInitialProps = async (ctx: any) => {
       const {
         AppTree,
-        ctx: { res }
+        ctx: { req, res }
       } = ctx;
+
+      let serverAccessToken = "";
+
+      if (isServer()) {
+        const cookies = cookie.parse(req.headers.cookie);
+        if (cookies.jid) {
+          const response = await fetch("http://localhost:4000/refresh_token", {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              cookie: "jid=" + cookies.jid
+            }
+          });
+          const data = await response.json();
+          serverAccessToken = data.accessToken;
+        }
+      }
 
       // Run all GraphQL queries in the component tree
       // and extract the resulting data
-      const apolloClient = (ctx.ctx.apolloClient = initApolloClient({}));
+      const apolloClient = (ctx.ctx.apolloClient = initApolloClient(
+        {},
+        serverAccessToken
+      ));
 
       const pageProps = PageComponent.getInitialProps
         ? await PageComponent.getInitialProps(ctx)
@@ -93,7 +124,8 @@ export function withApollo(PageComponent: any, { ssr = true } = {}) {
 
       return {
         ...pageProps,
-        apolloState
+        apolloState,
+        serverAccessToken
       };
     };
   }
@@ -107,11 +139,11 @@ let apolloClient: ApolloClient<NormalizedCacheObject> | null = null;
  * Always creates a new apollo client on the server
  * Creates or reuses apollo client in the browser.
  */
-function initApolloClient(initState: any) {
+function initApolloClient(initState: any, serverAccessToken?: string) {
   // Make sure to create a new client for every server-side request so that data
   // isn't shared between connections (which would be bad)
-  if (typeof window === "undefined") {
-    return createApolloClient(initState);
+  if (isServer()) {
+    return createApolloClient(initState, serverAccessToken);
   }
 
   // Reuse client on the client-side
@@ -128,7 +160,7 @@ function initApolloClient(initState: any) {
  * @param  {Object} [initialState={}]
  * @param  {Object} config
  */
-function createApolloClient(initialState = {}) {
+function createApolloClient(initialState = {}, serverAccessToken?: string) {
   const httpLink = new HttpLink({
     uri: "http://localhost:4000/graphql",
     credentials: "include",
@@ -171,7 +203,7 @@ function createApolloClient(initialState = {}) {
   });
 
   const authLink = setContext((_request, { headers }) => {
-    const token = getAccessToken();
+    const token = isServer() ? serverAccessToken : getAccessToken();
     return {
       headers: {
         ...headers,
