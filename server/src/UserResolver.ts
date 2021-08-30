@@ -3,8 +3,6 @@ import {
   Query,
   Mutation,
   Arg,
-  ObjectType,
-  Field,
   Ctx,
   UseMiddleware,
   Int
@@ -16,15 +14,6 @@ import { createRefreshToken, createAccessToken } from "./auth";
 import { isAuth } from "./isAuth";
 import { sendRefreshToken } from "./sendRefreshToken";
 import { getConnection } from "typeorm";
-import { verify } from "jsonwebtoken";
-
-@ObjectType()
-class LoginResponse {
-  @Field()
-  accessToken: string;
-  @Field(() => User)
-  user: User;
-}
 
 @Resolver()
 export class UserResolver {
@@ -37,7 +26,7 @@ export class UserResolver {
   @UseMiddleware(isAuth)
   bye(@Ctx() { payload }: MyContext) {
     console.log(payload);
-    return `your user id is: ${payload!.userId}`;
+    return `your user id is: ${payload!.id}`;
   }
 
   @Query(() => [User])
@@ -46,26 +35,18 @@ export class UserResolver {
   }
 
   @Query(() => User, { nullable: true })
+  @UseMiddleware(isAuth)
   me(@Ctx() context: MyContext) {
-    const authorization = context.req.headers["authorization"];
-
-    if (!authorization) {
-      return null;
-    }
-
-    try {
-      const token = authorization.split(" ")[1];
-      const payload: any = verify(token, process.env.ACCESS_TOKEN_SECRET!);
-      return User.findOne(payload.userId);
-    } catch (err) {
-      console.log(err);
-      return null;
-    }
+    return context.payload!;
   }
 
   @Mutation(() => Boolean)
-  async logout(@Ctx() { res }: MyContext) {
-    sendRefreshToken(res, "");
+  @UseMiddleware(isAuth)
+  async logout(@Ctx() { res, payload }: MyContext) {
+    res.clearCookie("jid");
+    await getConnection()
+      .getRepository(User)
+      .increment({ id: payload!.id }, "tokenVersion", 1);
 
     return true;
   }
@@ -79,12 +60,13 @@ export class UserResolver {
     return true;
   }
 
-  @Mutation(() => LoginResponse)
+  @Mutation(() => User)
   async login(
     @Arg("email") email: string,
     @Arg("password") password: string,
     @Ctx() { res }: MyContext
-  ): Promise<LoginResponse> {
+  ): Promise<User> {
+    console.log(email);
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -100,11 +82,8 @@ export class UserResolver {
     // login successful
 
     sendRefreshToken(res, createRefreshToken(user));
-
-    return {
-      accessToken: createAccessToken(user),
-      user
-    };
+    res.setHeader("access-token", createAccessToken(user));
+    return user;
   }
 
   @Mutation(() => Boolean)
@@ -123,7 +102,6 @@ export class UserResolver {
       console.log(err);
       return false;
     }
-
     return true;
   }
 }

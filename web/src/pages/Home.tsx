@@ -14,7 +14,7 @@ export const Home: React.FC<Props> = () => {
     <div>
       <div>users:</div>
       <ul>
-        {data.users.map(x => {
+        {data.users.map((x) => {
           return (
             <li key={x.id}>
               {x.email}, {x.id}
