@@ -5,7 +5,7 @@ import { RouteComponentProps } from "react-router-dom";
 export const Register: React.FC<RouteComponentProps> = ({ history }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [register] = useRegisterMutation();
+  const [register, { error }] = useRegisterMutation();
 
   return (
     <form
@@ -20,8 +20,12 @@ export const Register: React.FC<RouteComponentProps> = ({ history }) => {
         });
 
         console.log(response);
-
-        history.push("/");
+        if(response.data && response.data.register)
+          history.push("/");
+        else {
+          console.log(error);
+          window.alert("Error occured while registering a user");
+        }
       }}
     >
       <div>

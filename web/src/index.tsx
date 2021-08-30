@@ -1,95 +1,54 @@
 import React from "react";
 import ReactDOM from "react-dom";
-import { ApolloProvider } from "@apollo/react-hooks";
+import {
+  HttpLink,
+  ApolloLink,
+  ApolloClient,
+  InMemoryCache,
+  from,
+  ApolloProvider
+} from "@apollo/client";
 import { getAccessToken, setAccessToken } from "./accessToken";
 import { App } from "./App";
-import { ApolloClient } from "apollo-client";
-import { InMemoryCache } from "apollo-cache-inmemory";
-import { HttpLink } from "apollo-link-http";
-import { onError } from "apollo-link-error";
-import { ApolloLink, Observable } from "apollo-link";
-import { TokenRefreshLink } from "apollo-link-token-refresh";
-import jwtDecode from "jwt-decode";
 
-const cache = new InMemoryCache({});
+const httpLink = new HttpLink({
+  uri: "http://localhost:4000/graphql",
+  credentials: "include",
+});
 
-const requestLink = new ApolloLink(
-  (operation, forward) =>
-    new Observable(observer => {
-      let handle: any;
-      Promise.resolve(operation)
-        .then(operation => {
-          const accessToken = getAccessToken();
-          if (accessToken) {
-            operation.setContext({
-              headers: {
-                authorization: `bearer ${accessToken}`
-              }
-            });
-          }
-        })
-        .then(() => {
-          handle = forward(operation).subscribe({
-            next: observer.next.bind(observer),
-            error: observer.error.bind(observer),
-            complete: observer.complete.bind(observer)
-          });
-        })
-        .catch(observer.error.bind(observer));
+// Setup the header for the request
+const middlewareAuthLink = new ApolloLink((operation, forward) => {
+  const token = localStorage.getItem("AUTH_TOKEN");
 
-      return () => {
-        if (handle) handle.unsubscribe();
-      };
-    })
-);
+  const authorizationHeader = token ? `Bearer ${getAccessToken()}` : ``;
+  operation.setContext({
+    headers: {
+      authorization: authorizationHeader,
+    },
+  });
+  return forward(operation);
+});
+
+//After the backend responds, we take the accessToken from headers if it exists, and save it in the memory.
+const afterwareLink = new ApolloLink((operation, forward) => {
+  return forward(operation).map((response) => {
+    const context = operation.getContext();
+    const {
+      response: { headers },
+    } = context;
+    if (headers) {
+      const accessToken = headers.get("access-token");
+      if (accessToken) {
+        setAccessToken(accessToken);
+      }
+    }
+    return response;
+  });
+});
 
 const client = new ApolloClient({
-  link: ApolloLink.from([
-    new TokenRefreshLink({
-      accessTokenField: "accessToken",
-      isTokenValidOrUndefined: () => {
-        const token = getAccessToken();
-
-        if (!token) {
-          return true;
-        }
-
-        try {
-          const { exp } = jwtDecode(token);
-          if (Date.now() >= exp * 1000) {
-            return false;
-          } else {
-            return true;
-          }
-        } catch {
-          return false;
-        }
-      },
-      fetchAccessToken: () => {
-        return fetch("http://localhost:4000/refresh_token", {
-          method: "POST",
-          credentials: "include"
-        });
-      },
-      handleFetch: accessToken => {
-        setAccessToken(accessToken);
-      },
-      handleError: err => {
-        console.warn("Your refresh token is invalid. Try to relogin");
-        console.error(err);
-      }
-    }),
-    onError(({ graphQLErrors, networkError }) => {
-      console.log(graphQLErrors);
-      console.log(networkError);
-    }),
-    requestLink,
-    new HttpLink({
-      uri: "http://localhost:4000/graphql",
-      credentials: "include"
-    })
-  ]),
-  cache
+  link: from([middlewareAuthLink, afterwareLink, httpLink]),
+  cache: new InMemoryCache(),
 });
 
 ReactDOM.render(

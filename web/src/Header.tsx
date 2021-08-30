@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useApolloClient } from "@apollo/client";
 import { useMeQuery, useLogoutMutation } from "./generated/graphql";
 import { setAccessToken } from "./accessToken";
 
@@ -7,17 +8,13 @@ interface Props {}
 
 export const Header: React.FC<Props> = () => {
   const { data, loading } = useMeQuery();
-  const [logout, { client }] = useLogoutMutation();
+  const client = useApolloClient();
+  const [logout] = useLogoutMutation();
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
 
-  let body: any = null;
-
-  if (loading) {
-    body = null;
-  } else if (data && data.me) {
-    body = <div>you are logged in as: {data.me.email}</div>;
-  } else {
-    body = <div>not logged in</div>;
-  }
+  useEffect(() => {
+    if (data && data.me) setIsLoggedIn(true);
+  }, [data]);
 
   return (
     <header>
@@ -34,19 +31,20 @@ export const Header: React.FC<Props> = () => {
         <Link to="/bye">bye</Link>
       </div>
       <div>
-        {!loading && data && data.me ? (
+        {!loading && isLoggedIn ? (
           <button
             onClick={async () => {
               await logout();
               setAccessToken("");
-              await client!.resetStore();
+              await client.clearStore();
+              setIsLoggedIn(false);
             }}
           >
             logout
           </button>
         ) : null}
       </div>
-      {body}
+      {loading ? null : (isLoggedIn ? <div>you are logged in as: {data!.me!.email}</div> : <div>not logged in</div> )}
     </header>
   );
 };
